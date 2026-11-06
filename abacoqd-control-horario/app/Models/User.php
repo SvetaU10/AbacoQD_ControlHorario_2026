@@ -14,7 +14,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 
-#[Fillable(['name', 'email', 'password', 'role', 'active', 'starts_on', 'ends_on', 'municipality', 'centro_id'])]
+#[Fillable(['name', 'email', 'password', 'role', 'active', 'starts_on', 'ends_on', 'baja_on', 'municipality', 'centro_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -123,6 +123,7 @@ class User extends Authenticatable
             'active' => 'boolean',
             'starts_on' => 'date',
             'ends_on' => 'date',
+            'baja_on' => 'date',
         ];
     }
 }

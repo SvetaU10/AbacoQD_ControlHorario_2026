@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Centro;
+use App\Models\Festivo;
 use App\Models\ImportacionCalendario;
+use App\Models\VigenciaCalendario;
 use App\Services\CalendarioMunicipal;
 use App\Services\NagerFestivos;
 use App\Services\VigenciasCalendario;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -45,41 +48,22 @@ class ImportacionCalendarioController extends Controller
         }
         $fechaPorDefecto = $anio === now()->year ? now()->toDateString() : $anio.'-01-01';
         $fechaVigencia = $request->old('vigente_desde', $fechaPorDefecto);
-        $municipio = $ultima && $ultima->estado !== 'configuracion_modificada' ? [
-            'ine' => $ultima->municipio_ine,
-            'nombre' => $ultima->municipio,
-            'provincia' => $ultima->provincia,
-            'comunidad' => $ultima->comunidad,
-        ] : null;
         $avisoCatalogo = null;
-        $ineAnterior = $request->old('municipio_ine');
-        if (is_string($ineAnterior) && preg_match('/^\d{5}$/D', $ineAnterior)) {
-            try {
-                $municipio = $this->calendario->municipio($ineAnterior);
-            } catch (InvalidArgumentException $error) {
-                $avisoCatalogo = $error->getMessage();
-            } catch (RuntimeException) {
-                $avisoCatalogo = 'No se puede recuperar el municipio seleccionado. Inténtalo de nuevo.';
-            }
-        }
-
-        if ($municipio === null) {
-            try {
-                $municipio = $centro->municipio_ine
-                    ? $this->calendario->municipio($centro->municipio_ine)
-                    : collect($this->calendario->municipios($centro->municipality))
-                        ->first(fn (array $fila) => Str::lower(Str::ascii($fila['nombre'])) === Str::lower(Str::ascii($centro->municipality))
-                            && ($centro->comunidad_codigo === null || $fila['comunidad_codigo'] === $centro->comunidad_codigo));
-            } catch (InvalidArgumentException) {
-                $avisoCatalogo = 'Selecciona de nuevo el municipio de esta sede.';
-            } catch (RuntimeException) {
-                $avisoCatalogo = 'El buscador de municipios no está disponible ahora. Inténtalo de nuevo en unos minutos.';
-            }
+        $municipio = null;
+        try {
+            $municipio = $centro->municipio_ine
+                ? $this->calendario->municipio($centro->municipio_ine)
+                : collect($this->calendario->municipios($centro->municipality))
+                    ->first(fn (array $fila) => Str::lower(Str::ascii($fila['nombre'])) === Str::lower(Str::ascii($centro->municipality))
+                        && ($centro->comunidad_codigo === null || $fila['comunidad_codigo'] === $centro->comunidad_codigo));
+        } catch (InvalidArgumentException) {
+            $avisoCatalogo = 'Indica de nuevo el municipio de esta sede.';
+        } catch (RuntimeException) {
+            $avisoCatalogo = 'No se puede leer el municipio de la sede ahora. Inténtalo de nuevo en unos minutos.';
         }
 
         return view('gestion.calendario', [
             'centro' => $centro,
-            'centros' => Centro::query()->orderBy('name')->get(),
             'anio' => $anio,
             'ultima' => $ultima,
             'resumenConsulta' => $ultima ? $this->resumen($ultima) : null,
@@ -155,6 +139,100 @@ class ImportacionCalendarioController extends Controller
 
         return redirect()->route('gestion.calendario.mostrar', ['centro' => $centro, 'anio' => $importacion->anio])
             ->with('ok', $this->resumen($resultado));
+    }
+
+    public function corregir(Request $request, Centro $centro, VigenciasCalendario $vigencias): RedirectResponse
+    {
+        $datos = $request->validate([
+            'fecha_original' => ['required', 'date'],
+            'fecha' => ['required', 'date'],
+            'nombre' => ['required', 'string', 'max:120'],
+            'ambito' => ['required', 'in:estado,comunidad,pueblo,provincia,insular'],
+        ], [
+            'fecha.required' => 'Elige la fecha.',
+            'fecha.date' => 'Elige la fecha.',
+            'nombre.required' => 'Escribe el nombre del festivo.',
+            'nombre.max' => 'El nombre puede tener hasta 120 caracteres.',
+            'ambito.required' => 'Elige el tipo.',
+            'ambito.in' => 'Elige el tipo.',
+        ]);
+
+        $original = Carbon::parse($datos['fecha_original'])->startOfDay();
+        $nueva = Carbon::parse($datos['fecha'])->startOfDay();
+        $tramo = $vigencias->delAnio($centro, $original->year)
+            ->first(fn (VigenciaCalendario $vigencia): bool => $original->betweenIncluded($vigencia->desde, $vigencia->hasta));
+        if ($tramo?->importacion === null) {
+            return back()->with('aviso', 'Ese festivo no está en el calendario de la sede.');
+        }
+        if (! $nueva->betweenIncluded($tramo->desde, $tramo->hasta)) {
+            return back()->with('aviso', 'Esa fecha queda fuera del calendario de esta sede.');
+        }
+
+        $manual = $this->festivoManualVisible($centro, $tramo, $original);
+        if ($manual) {
+            if ($nueva->toDateString() !== $original->toDateString() && $this->festivoManualVisible($centro, $tramo, $nueva)) {
+                return back()->with('aviso', 'Esa fecha ya tiene un festivo.');
+            }
+            $manual->update([
+                'holiday_date' => $nueva->toDateString(),
+                'name' => $datos['nombre'],
+                'ambito' => $datos['ambito'],
+                'community' => $datos['ambito'] === 'comunidad' ? ($manual->community ?: $centro->community) : null,
+                'centro_id' => $datos['ambito'] === 'pueblo' ? $centro->id : null,
+                'municipality' => $datos['ambito'] === 'pueblo' ? ($centro->municipality ?? '') : '',
+            ]);
+
+            return redirect()->route('gestion.calendario.mostrar', ['centro' => $centro, 'anio' => $original->year])
+                ->with('ok', 'Festivo actualizado.');
+        }
+
+        $lista = $tramo->importacion->festivos ?? [];
+        $indice = null;
+        foreach ($lista as $posicion => $dia) {
+            if (($dia['date'] ?? '') === $original->toDateString()) {
+                $indice = $posicion;
+                break;
+            }
+        }
+        if ($indice === null) {
+            return back()->with('aviso', 'Ese festivo no está en el calendario de la sede.');
+        }
+        foreach ($lista as $posicion => $dia) {
+            if ($posicion !== $indice && ($dia['date'] ?? '') === $nueva->toDateString()) {
+                return back()->with('aviso', 'Esa fecha ya tiene un festivo.');
+            }
+        }
+        $lista[$indice]['date'] = $nueva->toDateString();
+        $lista[$indice]['name'] = $datos['nombre'];
+        $lista[$indice]['ambito'] = $datos['ambito'];
+        usort($lista, fn (array $uno, array $otro): int => ($uno['date'] ?? '') <=> ($otro['date'] ?? ''));
+        $tramo->importacion->update(['festivos' => array_values($lista)]);
+
+        return redirect()->route('gestion.calendario.mostrar', ['centro' => $centro, 'anio' => $original->year])
+            ->with('ok', 'Festivo actualizado.');
+    }
+
+    private function festivoManualVisible(Centro $centro, VigenciaCalendario $tramo, Carbon $fecha): ?Festivo
+    {
+        $municipio = $tramo->importacion->municipio ?? $centro->municipality ?? '';
+        $comunidad = $tramo->importacion->comunidad ?? $centro->community;
+        $comunidades = match ($comunidad) {
+            'Madrid', 'Comunidad de Madrid' => ['Madrid', 'Comunidad de Madrid'],
+            'Valencia', 'Comunitat Valenciana', 'Comunidad Valenciana' => ['Valencia', 'Comunitat Valenciana', 'Comunidad Valenciana'],
+            default => [$comunidad],
+        };
+
+        return Festivo::query()
+            ->whereDate('holiday_date', $fecha)
+            ->where(fn ($consulta) => $consulta->where('centro_id', $centro->id)->orWhereNull('centro_id'))
+            ->get()
+            ->first(fn (Festivo $festivo): bool => match ($festivo->ambito) {
+                'estado' => true,
+                'comunidad' => in_array($festivo->community, $comunidades, true),
+                'pueblo' => $festivo->municipality === $municipio,
+                null, '' => $festivo->municipality === '' || $festivo->municipality === $municipio,
+                default => false,
+            });
     }
 
     private function resumen(ImportacionCalendario $consulta): string

@@ -9,6 +9,7 @@ use App\Models\FalloComun;
 use App\Models\Festivo;
 use App\Models\Jornada;
 use App\Models\SolicitudVacaciones;
+use App\Models\User;
 use App\Services\CupoVacaciones;
 use App\Services\JornadaService;
 use App\Services\NagerFestivos;
@@ -85,7 +86,9 @@ class CalendarioController extends Controller
             'tramos' => $this->festivos->vigenciasDePersona($usuario, $anio),
             'sinCalendario' => ! $this->festivos->coberturaPersonaConfirmada($usuario, $anio),
             'fallos' => FalloComun::query()->orderByDesc('falla_date')->limit(12)->get(),
-            'diasVacaciones' => $this->cupo->restantes($usuario, now()->year),
+            'vacaciones' => $this->cupo->resumen($usuario, $anio),
+            'vacacionesAprobadas' => $this->textosAprobadas($usuario, $anio),
+            'vacacionesRechazadas' => $this->textosRechazadas($usuario, $anio),
         ];
 
         if ($request->query('fragmento') === '1') {
@@ -378,5 +381,73 @@ class CalendarioController extends Controller
         }
 
         return $eventos;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function textosAprobadas(User $usuario, int $anio): array
+    {
+        $solicitudes = $usuario->solicitudesVacaciones()
+            ->where('estado', SolicitudVacaciones::APROBADA)
+            ->orderBy('starts_on')
+            ->get()
+            ->filter(fn (SolicitudVacaciones $solicitud) => $solicitud->starts_on->year <= $anio && $solicitud->ends_on->year >= $anio);
+
+        $fechas = $usuario->ausencias()
+            ->where('tipo', 'vacaciones')
+            ->whereYear('absence_date', $anio)
+            ->orderBy('absence_date')
+            ->get()
+            ->filter(fn (Ausencia $ausencia) => $solicitudes->doesntContain(
+                fn (SolicitudVacaciones $solicitud) => $ausencia->absence_date->between($solicitud->starts_on, $solicitud->ends_on),
+            ))
+            ->map(fn (Ausencia $ausencia) => $ausencia->absence_date->copy()->startOfDay());
+
+        return [
+            ...$solicitudes->map(fn (SolicitudVacaciones $solicitud) => $solicitud->periodoTexto())->all(),
+            ...$this->textosDeRangos($fechas),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Carbon>  $fechas
+     * @return list<string>
+     */
+    private function textosDeRangos(Collection $fechas): array
+    {
+        $rangos = [];
+        foreach ($fechas as $fecha) {
+            $ultimo = array_key_last($rangos);
+            if ($ultimo !== null && $rangos[$ultimo]['hasta']->copy()->addDay()->equalTo($fecha)) {
+                $rangos[$ultimo]['hasta'] = $fecha;
+                continue;
+            }
+            $rangos[] = ['desde' => $fecha->copy(), 'hasta' => $fecha->copy()];
+        }
+
+        return array_map(function (array $rango): string {
+            $desde = $rango['desde']->format('d/m/Y');
+            if ($rango['desde']->equalTo($rango['hasta'])) {
+                return 'El '.$desde;
+            }
+
+            return 'Del '.$desde.' al '.$rango['hasta']->format('d/m/Y');
+        }, $rangos);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function textosRechazadas(User $usuario, int $anio): array
+    {
+        return $usuario->solicitudesVacaciones()
+            ->where('estado', SolicitudVacaciones::RECHAZADA)
+            ->orderBy('starts_on')
+            ->get()
+            ->filter(fn (SolicitudVacaciones $solicitud) => $solicitud->starts_on->year <= $anio && $solicitud->ends_on->year >= $anio)
+            ->map(fn (SolicitudVacaciones $solicitud) => $solicitud->periodoTexto())
+            ->values()
+            ->all();
     }
 }

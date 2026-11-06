@@ -48,6 +48,20 @@ class Horario extends Model
         return TipoJornada::tryFrom((string) $this->tipo);
     }
 
+    public function esJornadaCompleta(): bool
+    {
+        if ($this->sinTarde()) {
+            return false;
+        }
+
+        $comida = strtotime('1970-01-01 '.$this->corta($this->afternoon_start))
+            - strtotime('1970-01-01 '.$this->corta($this->morning_end));
+
+        return $this->corta($this->morning_start) === '09:00'
+            && $this->corta($this->afternoon_end) === '18:00'
+            && $comida === 3600;
+    }
+
     public function corta(string $hora): string
     {
         return substr($hora, 0, 5);

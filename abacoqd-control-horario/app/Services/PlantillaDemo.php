@@ -90,7 +90,7 @@ class PlantillaDemo
         if (! Horario::query()->where('user_id', $persona->id)->whereDate('effective_from', $desde)->exists()) {
             Horario::create([
                 'user_id' => $persona->id,
-                'tipo' => $fila['tipo'] ?? TipoJornada::Partida->value,
+                'tipo' => $fila['tipo'] ?? TipoJornada::Completa->value,
                 'morning_start' => $fila['morning_start'] ?? '09:00',
                 'morning_end' => $fila['morning_end'] ?? '14:00',
                 'afternoon_start' => $fila['afternoon_start'] ?? '15:00',

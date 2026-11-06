@@ -36,13 +36,28 @@
         margin: 0;
     }
 
-    .personas-cabeza .boton {
+    .personas-cabeza .boton,
+    .personas-pie .boton {
         flex: 0 0 auto;
+        gap: 8px;
+        background: var(--marca-primario);
+        color: #fff;
+        border-color: transparent;
     }
 
-    .personas-cabeza .boton svg {
+    .personas-cabeza .boton:hover,
+    .personas-cabeza .boton:focus-visible,
+    .personas-pie .boton:hover,
+    .personas-pie .boton:focus-visible {
+        background: var(--marca-primario-oscuro);
+        color: #fff;
+    }
+
+    .personas-cabeza .boton svg,
+    .personas-pie .boton svg {
         width: 18px;
         height: 18px;
+        flex: 0 0 auto;
     }
 
     .personas-resumen {
@@ -105,6 +120,64 @@
     .personas-pie {
         display: flex;
         justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .persona-reactivar {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .persona-reactivar .boton {
+        gap: 8px;
+        min-height: 40px;
+    }
+
+    .persona-reactivar .boton svg {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+    }
+
+    .reactivar-dialogo {
+        position: relative;
+        width: min(420px, calc(100vw - 32px));
+        padding: 22px;
+        border: 1px solid var(--linea);
+        border-top: 3px solid var(--marca-primario);
+        border-radius: 16px;
+        background: var(--fondo-ventana);
+    }
+
+    .reactivar-dialogo::backdrop {
+        background: rgba(7, 17, 26, 0.45);
+    }
+
+    .reactivar-dialogo h2 {
+        margin: 0 36px 8px 0;
+    }
+
+    .reactivar-dialogo p {
+        margin: 0 0 16px;
+    }
+
+    .reactivar-cerrar-form {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        margin: 0;
+    }
+
+    .reactivar-cerrar-form button {
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 10px;
+        background: var(--superficie-2);
+        color: var(--texto);
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
     }
 
     .personas-todos {
@@ -165,6 +238,13 @@
         font-size: var(--texto-secundario);
     }
 
+    .persona-card-lado {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 8px;
+    }
+
     .persona-card-rol {
         padding: var(--e1) var(--e2);
         border-radius: var(--radio-sm);
@@ -172,6 +252,31 @@
         color: var(--texto-suave);
         font-size: var(--texto-secundario);
         font-weight: var(--peso-boton);
+    }
+
+    .persona-card-editar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: 1px solid color-mix(in srgb, var(--marca-primario) 42%, var(--linea));
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--marca-primario) 10%, var(--superficie));
+        color: var(--marca-primario-oscuro);
+        text-decoration: none;
+    }
+
+    .persona-card-editar .icono {
+        width: 14px;
+        height: 14px;
+    }
+
+    .persona-card-editar:hover,
+    .persona-card-editar:focus-visible {
+        border-color: var(--marca-primario);
+        background: var(--marca-primario);
+        color: #fff;
     }
 
     .persona-card-detalles {
@@ -558,6 +663,13 @@
 
     .calendario-controles {
         display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .calendario-controles-fila {
+        display: flex;
         align-items: center;
         gap: var(--e2);
     }
@@ -789,11 +901,11 @@
 
     .calendario-mes-card .casilla {
         display: flex;
-        min-height: 112px;
+        min-height: 58px;
         flex-direction: column;
         align-items: stretch;
-        gap: var(--e1);
-        padding: var(--e2);
+        gap: 2px;
+        padding: 6px;
         border-right: 1px solid var(--linea);
         border-bottom: 1px solid var(--linea);
         border-radius: 0;
@@ -1438,29 +1550,25 @@
         margin: 0;
     }
 
-    .calendario-pagina > .vacaciones-pedir {
+    .calendario-cabecera .vacaciones-pedir {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: var(--e4);
+        gap: 8px;
         max-width: none;
         margin: 0;
-        padding: var(--e4);
-        border: 1px solid var(--linea);
-        border-radius: var(--radio);
-        background: var(--superficie);
+        padding: 0;
+        border: 0;
+        background: transparent;
     }
 
-    .calendario-pagina > .vacaciones-pedir > div:first-child {
-        display: flex;
-        flex-direction: column;
-        gap: var(--e1);
+    .calendario-cabecera .vacaciones-boton {
+        min-height: 36px;
+        padding: 6px 14px;
+        white-space: nowrap;
     }
 
-    .calendario-pagina > .vacaciones-pedir .vacaciones-abre {
-        flex: 0 0 auto;
-        min-height: var(--alto-control);
-        border-radius: var(--radio);
+    .calendario-cabecera .vacaciones-aviso {
+        margin: 0;
     }
 
     .calendario-leyenda {
@@ -1494,6 +1602,10 @@
         }
 
         .calendario-controles {
+            align-items: stretch;
+        }
+
+        .calendario-controles-fila {
             justify-content: space-between;
         }
 
@@ -1518,12 +1630,11 @@
             padding-inline: var(--e1);
         }
 
-        .calendario-pagina > .vacaciones-pedir {
-            align-items: stretch;
-            flex-direction: column;
+        .calendario-cabecera .vacaciones-pedir {
+            width: 100%;
         }
 
-        .calendario-pagina > .vacaciones-pedir .vacaciones-abre {
+        .calendario-cabecera .vacaciones-boton {
             width: 100%;
         }
     }

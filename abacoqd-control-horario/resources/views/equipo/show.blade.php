@@ -80,7 +80,7 @@
         </form>
         <p class="secundario">Se cierra el acceso y se paran los avisos. El registro se conserva.</p>
     @elseif (! $persona->active)
-        <p>Acceso cerrado. El registro se conserva.</p>
+        <p>Acceso cerrado. Día de la baja: {{ $persona->baja_on?->format('d/m/Y') ?? 'sin indicar' }}. El contrato y el registro se conservan.</p>
     @endif
 
     @if ($consultas->isNotEmpty())

@@ -4,11 +4,19 @@
     @php
         $fuentes = collect($ultima?->fuentes ?? [])->merge($tramos->flatMap(fn ($tramo) => $tramo->importacion->fuentes ?? []))->unique('url');
         $dias = $diasAplicados->map(fn ($dia) => ['date' => $dia->holiday_date->toDateString(), 'name' => $dia->name, 'ambito' => $dia->ambito]);
-        $municipioTexto = $municipioElegido ? $municipioElegido['nombre'].' · '.$municipioElegido['provincia'] : '';
+        $municipioTexto = $municipioElegido ? $municipioElegido['nombre'].' · '.$municipioElegido['provincia'] : $centro->municipality;
     @endphp
     <header class="cal-carga-cabeza">
-        <div><p class="espacio-sobre">Gestión · {{ $centro->name }}</p><h1>Calendario laboral</h1><p class="secundario">Elige el municipio y desde cuándo usar sus festivos.</p></div>
-        <a class="boton boton-secundario" href="{{ route('calendario', ['anio' => $anio]) }}">Ver mi calendario</a>
+        <div class="cal-carga-titulo">
+            <a class="cal-volver" href="{{ route('gestion.index') }}" aria-label="Volver a Gestión">
+                <x-icono nombre="arrow-left" />
+            </a>
+            <div>
+                <p class="espacio-sobre">Gestión · {{ $centro->name }}</p>
+                <h1>Calendario laboral</h1>
+                <p class="secundario">Los festivos salen del municipio de la sede. Elige desde cuándo usarlos.</p>
+            </div>
+        </div>
     </header>
 
     @if ($avisoCatalogo)
@@ -18,28 +26,38 @@
         <h2 id="titulo-cal-carga">Cargar o actualizar</h2>
         <form method="post" action="{{ route('gestion.calendario.cargar', $centro) }}" class="cal-carga-form" data-cal-carga-form>
             @csrf
-            <div class="cal-form-campo"><label for="cal-anio">Año</label><input id="cal-anio" type="number" name="anio" value="{{ $anio }}" min="2020" max="{{ now()->year + 5 }}" required @if ($errors->has('anio')) aria-invalid="true" aria-describedby="cal-anio-error" @endif>@error('anio')<p id="cal-anio-error" class="cal-error">{{ $message }}</p>@enderror</div>
-            <div class="cal-municipio" data-municipio-buscador data-url="{{ route('gestion.municipios') }}">
-                <label for="cal-municipio">Municipio</label>
-                <input id="cal-municipio" type="search" value="{{ $municipioTexto }}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cal-opciones" aria-describedby="cal-municipio-ayuda{{ $errors->has('municipio_ine') ? ' cal-municipio-error' : '' }}" placeholder="Escribe al menos dos letras" required @if ($errors->has('municipio_ine')) aria-invalid="true" @endif>
-                <input type="hidden" name="municipio_ine" value="{{ $municipioElegido['ine'] ?? '' }}" data-municipio-ine>
-                <div id="cal-opciones" class="cal-municipio-opciones" role="listbox" aria-label="Municipios encontrados" hidden></div>
-                <p class="cal-ayuda" id="cal-municipio-ayuda" aria-live="polite" data-municipio-mensaje>{{ $municipioElegido ? $municipioElegido['provincia'].' · '.$municipioElegido['comunidad'].' · España' : 'Selecciona el municipio en los resultados.' }}</p>
-                @error('municipio_ine')<p id="cal-municipio-error" class="cal-error">{{ $message }}</p>@enderror
+            <div class="cal-carga-fila">
+                <div class="cal-form-campo">
+                    <label for="cal-anio">Año</label>
+                    <input id="cal-anio" type="number" name="anio" value="{{ $anio }}" min="2020" max="{{ now()->year + 5 }}" required @if ($errors->has('anio')) aria-invalid="true" aria-describedby="cal-anio-error" @endif>
+                    @error('anio')<p id="cal-anio-error" class="cal-error">{{ $message }}</p>@enderror
+                </div>
+                <div class="cal-municipio" data-municipio-buscador>
+                    <label for="cal-municipio">Municipio</label>
+                    <input id="cal-municipio" type="text" value="{{ $municipioTexto }}" autocomplete="off" aria-describedby="cal-municipio-ayuda{{ $errors->has('municipio_ine') ? ' cal-municipio-error' : '' }}" disabled @if ($errors->has('municipio_ine')) aria-invalid="true" @endif>
+                    <input type="hidden" name="municipio_ine" value="{{ $municipioElegido['ine'] ?? '' }}" data-municipio-ine>
+                    <p class="cal-ayuda" id="cal-municipio-ayuda" aria-live="polite" data-municipio-mensaje>{{ $municipioElegido ? $municipioElegido['provincia'].' · '.$municipioElegido['comunidad'].' · España' : 'Indica el municipio al editar la sede.' }}</p>
+                    @error('municipio_ine')<p id="cal-municipio-error" class="cal-error">{{ $message }}</p>@enderror
+                </div>
             </div>
             <fieldset class="cal-vigencia-form" @if ($errors->has('vigencia_modo')) aria-invalid="true" aria-describedby="cal-modo-error" @endif>
                 <legend>Cuándo empieza</legend>
-                <label><input type="radio" name="vigencia_modo" value="anio" @checked($modoVigencia === 'anio')> Todo el año, desde el 1 de enero</label>
-                <label><input type="radio" name="vigencia_modo" value="fecha" @checked($modoVigencia === 'fecha')> Desde una fecha</label>
-                <label for="cal-vigente-desde">Empieza el<input id="cal-vigente-desde" type="date" name="vigente_desde" value="{{ $fechaVigencia }}" min="{{ $anio }}-01-01" max="{{ $anio }}-12-31" aria-describedby="cal-vigencia-ayuda{{ $errors->has('vigente_desde') ? ' cal-vigencia-error' : '' }}" @disabled($modoVigencia === 'anio') @required($modoVigencia === 'fecha') @if ($errors->has('vigente_desde')) aria-invalid="true" @endif></label>
+                <div class="cal-vigencia-opciones">
+                    <label><input type="radio" name="vigencia_modo" value="anio" @checked($modoVigencia === 'anio')> Todo el año, desde el 1 de enero</label>
+                    <label><input type="radio" name="vigencia_modo" value="fecha" @checked($modoVigencia === 'fecha')> Desde una fecha</label>
+                </div>
+                <label class="cal-vigencia-fecha" for="cal-vigente-desde">Empieza el
+                    <input id="cal-vigente-desde" type="date" name="vigente_desde" value="{{ $fechaVigencia }}" min="{{ $anio }}-01-01" max="{{ $anio }}-12-31" aria-describedby="cal-vigencia-ayuda{{ $errors->has('vigente_desde') ? ' cal-vigencia-error' : '' }}" @disabled($modoVigencia === 'anio') @required($modoVigencia === 'fecha') @if ($errors->has('vigente_desde')) aria-invalid="true" @endif>
+                </label>
                 <p id="cal-vigencia-ayuda" class="cal-ayuda">Las fechas anteriores mantienen su calendario.</p>
                 @error('vigencia_modo')<p id="cal-modo-error" class="cal-error">{{ $message }}</p>@enderror
                 @error('vigente_desde')<p id="cal-vigencia-error" class="cal-error">{{ $message }}</p>@enderror
             </fieldset>
-            <button class="boton boton-principal" type="submit" data-cal-carga-boton>Cargar / actualizar</button>
-            <p class="cal-ayuda cal-carga-progreso" role="status" data-cal-carga-progreso hidden>Buscando las fiestas…</p>
+            <div class="cal-carga-acciones">
+                <button class="boton boton-principal" type="submit" data-cal-carga-boton>Cargar / actualizar</button>
+                <p class="cal-ayuda cal-carga-progreso" role="status" data-cal-carga-progreso hidden>Buscando las fiestas…</p>
+            </div>
         </form>
-        <details class="cal-cambiar-centro"><summary>Calendario de {{ $centro->name }} · Cambiar centro</summary><nav aria-label="Elegir centro">@foreach ($centros as $otroCentro)<a href="{{ route('gestion.calendario.mostrar', ['centro' => $otroCentro, 'anio' => $anio]) }}" @if ($otroCentro->id === $centro->id) aria-current="page" @endif>{{ $otroCentro->name }}</a>@endforeach</nav></details>
     </section>
 
     @if ($ultima)
@@ -70,9 +88,61 @@
         @include('calendario.leyenda')
         @include('calendario.vigencias')
         @if ($tramos->isNotEmpty())
-            <details class="cal-fechas-guardadas"><summary>Ver los festivos guardados</summary><div class="cal-tabla-contenedor" role="region" aria-label="Festivos guardados de {{ $anio }}" tabindex="0"><table class="cal-carga-tabla"><caption class="sr">Festivos guardados de {{ $anio }}</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Festividad</th><th scope="col">Tipo</th></tr></thead><tbody>@foreach ($dias as $dia)<tr><td>{{ \Illuminate\Support\Carbon::parse($dia['date'])->format('d/m/Y') }}</td><td>{{ $dia['name'] }}</td><td><x-ambito-festivo :ambito="$dia['ambito']" /></td></tr>@endforeach</tbody></table></div></details>
+            <details class="cal-fechas-guardadas">
+                <summary>Ver los festivos guardados</summary>
+                <div class="cal-tabla-contenedor" role="region" aria-label="Festivos guardados de {{ $anio }}" tabindex="0">
+                    <table class="cal-carga-tabla">
+                        <caption class="sr">Festivos guardados de {{ $anio }}</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Fecha</th>
+                                <th scope="col">Festividad</th>
+                                <th scope="col">Tipo</th>
+                                <th scope="col"><span class="sr">Editar</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($dias as $dia)
+                                <tr>
+                                    <td>{{ \Illuminate\Support\Carbon::parse($dia['date'])->format('d/m/Y') }}</td>
+                                    <td>{{ $dia['name'] }}</td>
+                                    <td><x-ambito-festivo :ambito="$dia['ambito']" /></td>
+                                    <td class="festivo-editar-celda">
+                                        <button class="festivo-editar" type="button" data-festivo-editar="{{ $dia['date'] }}" aria-label="Editar {{ $dia['name'] }}">
+                                            <x-icono nombre="pencil" />
+                                        </button>
+                                        <dialog class="dialogo-hoy festivo-editar-dialogo" data-festivo-dialogo="{{ $dia['date'] }}" aria-labelledby="titulo-festivo-{{ $dia['date'] }}">
+                                            <form method="dialog" class="festivo-editar-cerrar">
+                                                <button type="submit" aria-label="Cerrar">×</button>
+                                            </form>
+                                            <h2 id="titulo-festivo-{{ $dia['date'] }}">Editar festivo</h2>
+                                            <form method="post" action="{{ route('gestion.calendario.festivo', $centro) }}" class="formulario">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="fecha_original" value="{{ $dia['date'] }}">
+                                                <label>Fecha <input name="fecha" type="date" value="{{ $dia['date'] }}" required></label>
+                                                <label>Festividad <input name="nombre" value="{{ $dia['name'] }}" required maxlength="120"></label>
+                                                <label>Tipo
+                                                    <select name="ambito" required>
+                                                        <option value="estado" @selected($dia['ambito'] === 'estado')>Nacional</option>
+                                                        <option value="comunidad" @selected($dia['ambito'] === 'comunidad')>Autonómico</option>
+                                                        <option value="provincia" @selected($dia['ambito'] === 'provincia')>Provincial</option>
+                                                        <option value="insular" @selected($dia['ambito'] === 'insular')>Insular</option>
+                                                        <option value="pueblo" @selected($dia['ambito'] === 'pueblo')>Municipal</option>
+                                                    </select>
+                                                </label>
+                                                <button class="boton boton-principal" type="submit">Guardar</button>
+                                            </form>
+                                        </dialog>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </details>
         @else
-            <p>Busca el municipio y el año para empezar. Las vacaciones aprobadas y tus fichajes se conservan.</p>
+            <p>Carga el año para traer los festivos de la sede. Las vacaciones aprobadas y tus fichajes se conservan.</p>
         @endif
         <p class="cal-ayuda">Aquí guardas festivos. Las vacaciones personales se gestionan por separado.</p>
     </section>
@@ -87,9 +157,7 @@
     <script>
     (() => {
         const raiz = document.querySelector('[data-municipio-buscador]');
-        const campo = raiz.querySelector('input[type=search]');
         const codigo = raiz.querySelector('[data-municipio-ine]');
-        const opciones = raiz.querySelector('[role=listbox]');
         const mensaje = raiz.querySelector('[data-municipio-mensaje]');
         const formulario = document.querySelector('[data-cal-carga-form]');
         const anio = document.querySelector('#cal-anio');
@@ -107,56 +175,18 @@
             const fuentes = document.querySelector('#cal-fuentes');
             if (fuentes) { fuentes.open = true; fuentes.querySelector('summary').focus(); }
         }));
-        let temporizador, controlador, seleccion = -1, resultados = [], numeroConsulta = 0;
-        function cerrar(cancelar = false) {
-            opciones.hidden = true; campo.setAttribute('aria-expanded', 'false'); campo.removeAttribute('aria-activedescendant'); seleccion = -1;
-            if (cancelar) { clearTimeout(temporizador); controlador?.abort(); numeroConsulta++; campo.removeAttribute('aria-busy'); }
-        }
-        function elegir(fila) { campo.value = fila.nombre + ' · ' + fila.provincia; codigo.value = fila.ine; campo.setCustomValidity(''); mensaje.textContent = fila.provincia + ' · ' + fila.comunidad + ' · España'; cerrar(true); campo.focus(); }
-        campo.addEventListener('input', () => {
-            clearTimeout(temporizador); if (controlador) controlador.abort();
-            const id = ++numeroConsulta; codigo.value = ''; campo.setCustomValidity(''); campo.removeAttribute('aria-busy'); cerrar(); resultados = []; opciones.replaceChildren();
-            if (campo.value.trim().length < 2) { mensaje.textContent = 'Escribe al menos dos letras y selecciona un resultado.'; return; }
-            mensaje.textContent = 'Buscando municipios…'; campo.setAttribute('aria-busy', 'true');
-            temporizador = setTimeout(async () => {
-                controlador = new AbortController();
-                try {
-                    const url = new URL(raiz.dataset.url, location.href); url.searchParams.set('buscar', campo.value.trim());
-                    const respuesta = await fetch(url, {headers: {'Accept': 'application/json'}, signal: controlador.signal});
-                    if (!respuesta.ok) throw new Error();
-                    const datos = await respuesta.json(); if (id !== numeroConsulta) return;
-                    resultados = datos.municipios; opciones.replaceChildren();
-                    resultados.forEach((fila, indice) => {
-                        const opcion = document.createElement('button'); opcion.type = 'button'; opcion.tabIndex = -1; opcion.id = 'cal-opcion-' + indice; opcion.setAttribute('role', 'option'); opcion.setAttribute('aria-selected', 'false'); opcion.textContent = fila.nombre + ' · ' + fila.provincia; opcion.addEventListener('click', () => elegir(fila)); opciones.append(opcion);
-                    });
-                    opciones.hidden = resultados.length === 0; campo.setAttribute('aria-expanded', resultados.length ? 'true' : 'false');
-                    mensaje.textContent = resultados.length ? (datos.hay_mas ? 'Hay más municipios. Escribe más letras para afinar la búsqueda.' : 'Selecciona un municipio de la lista.') : 'No se han encontrado municipios con ese texto.';
-                } catch (error) { if (error.name !== 'AbortError' && id === numeroConsulta) mensaje.textContent = 'No se pueden buscar municipios ahora. Inténtalo de nuevo.'; }
-                finally { if (id === numeroConsulta) campo.removeAttribute('aria-busy'); }
-            }, 250);
+        document.querySelectorAll('[data-festivo-editar]').forEach((boton) => {
+            boton.addEventListener('click', () => {
+                document.querySelector('[data-festivo-dialogo="' + boton.dataset.festivoEditar + '"]')?.showModal();
+            });
         });
-        campo.addEventListener('keydown', (evento) => {
-            if (evento.key === 'Escape') { evento.preventDefault(); cerrar(true); return; }
-            if (evento.key === 'Tab') { cerrar(true); return; }
-            if (opciones.hidden) {
-                if (['ArrowDown', 'ArrowUp'].includes(evento.key) && resultados.length && !codigo.value) {
-                    opciones.hidden = false; campo.setAttribute('aria-expanded', 'true');
-                } else return;
-            }
-            if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
-                evento.preventDefault(); seleccion = seleccion < 0 ? (evento.key === 'ArrowDown' ? 0 : resultados.length - 1) : (seleccion + (evento.key === 'ArrowDown' ? 1 : -1) + resultados.length) % resultados.length;
-                Array.from(opciones.children).forEach((opcion, indice) => opcion.setAttribute('aria-selected', String(indice === seleccion)));
-                campo.setAttribute('aria-activedescendant', 'cal-opcion-' + seleccion); opciones.children[seleccion].scrollIntoView({block: 'nearest'});
-            } else if (evento.key === 'Enter' && seleccion >= 0) { evento.preventDefault(); elegir(resultados[seleccion]); }
-        });
-        document.addEventListener('click', (evento) => { if (!raiz.contains(evento.target)) cerrar(true); });
         formulario.addEventListener('submit', (evento) => {
             if (formulario.getAttribute('aria-busy') === 'true') { evento.preventDefault(); return; }
-            if (!codigo.value) { evento.preventDefault(); campo.setCustomValidity('Selecciona un municipio de la lista.'); campo.reportValidity(); return; }
-            cerrar(true); formulario.setAttribute('aria-busy', 'true'); formulario.querySelector('[data-cal-carga-boton]').disabled = true; formulario.querySelector('[data-cal-carga-boton]').textContent = 'Buscando…'; formulario.querySelector('[data-cal-carga-progreso]').hidden = false;
+            if (!codigo.value) { evento.preventDefault(); mensaje.textContent = 'Indica el municipio al editar la sede.'; return; }
+            formulario.setAttribute('aria-busy', 'true'); formulario.querySelector('[data-cal-carga-boton]').disabled = true; formulario.querySelector('[data-cal-carga-boton]').textContent = 'Buscando…'; formulario.querySelector('[data-cal-carga-progreso]').hidden = false;
         });
         window.addEventListener('pageshow', () => {
-            cerrar(true); actualizarVigencia(); formulario.removeAttribute('aria-busy'); formulario.querySelector('[data-cal-carga-boton]').disabled = false; formulario.querySelector('[data-cal-carga-boton]').textContent = 'Cargar / actualizar'; formulario.querySelector('[data-cal-carga-progreso]').hidden = true;
+            actualizarVigencia(); formulario.removeAttribute('aria-busy'); formulario.querySelector('[data-cal-carga-boton]').disabled = false; formulario.querySelector('[data-cal-carga-boton]').textContent = 'Cargar / actualizar'; formulario.querySelector('[data-cal-carga-progreso]').hidden = true;
         });
     })();
     </script>

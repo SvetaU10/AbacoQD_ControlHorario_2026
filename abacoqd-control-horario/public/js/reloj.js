@@ -335,10 +335,16 @@
         return;
     }
 
-    const pedir = document.querySelector("[data-vacaciones-pedir]");
-    const texto = document.querySelector("[data-vacaciones-texto]");
-    const acciones = document.querySelector("[data-vacaciones-acciones]");
+    const dialogo = document.querySelector("[data-vacaciones-dialogo]");
     const formulario = document.querySelector("[data-vacaciones-form]");
+
+    function ui() {
+        return {
+            abre: document.querySelector("[data-vacaciones-abre]"),
+            texto: document.querySelector("[data-vacaciones-texto]"),
+            acciones: document.querySelector("[data-vacaciones-acciones]"),
+        };
+    }
     let pedido = 0;
     let eligiendo = false;
     let desde = "";
@@ -371,6 +377,14 @@
                     return;
                 }
                 caja.innerHTML = html;
+                const plantilla = caja.querySelector("[data-vacaciones-panel]");
+                const cuerpo = document.querySelector("[data-vacaciones-cuerpo]");
+                if (plantilla && cuerpo) {
+                    cuerpo.innerHTML = plantilla.innerHTML;
+                }
+                if (eligiendo) {
+                    aplicarEleccion();
+                }
                 pintarRango();
                 if (guardar) {
                     const visible = new URL(url, window.location.origin);
@@ -380,15 +394,25 @@
             });
     }
 
+    function aplicarEleccion() {
+        const controles = ui();
+        if (controles.abre) controles.abre.hidden = true;
+        if (controles.texto) {
+            controles.texto.hidden = false;
+            controles.texto.textContent = !desde
+                ? "Elige un rango de fechas"
+                : (hasta ? "Rango seleccionado. Puedes aceptar la solicitud." : "Elige el último día");
+        }
+        if (controles.acciones) controles.acciones.hidden = false;
+    }
+
     function abrirEleccion() {
         eligiendo = true;
         desde = "";
         hasta = "";
         caja.dataset.vacacionesEligiendo = "1";
-        pedir.hidden = true;
-        texto.hidden = false;
-        texto.textContent = "Elige un rango de fechas";
-        acciones.hidden = false;
+        if (dialogo) dialogo.close();
+        aplicarEleccion();
         pintarRango();
     }
 
@@ -397,9 +421,6 @@
         desde = "";
         hasta = "";
         delete caja.dataset.vacacionesEligiendo;
-        pedir.hidden = false;
-        texto.hidden = true;
-        acciones.hidden = true;
         cargar(window.location.href, false).catch(function () {
             window.location.reload();
         });
@@ -415,33 +436,37 @@
         } else {
             hasta = fecha;
         }
-        if (texto) {
-            texto.textContent = hasta
-                ? "Rango seleccionado. Puedes aceptar la solicitud."
-                : "Elige el último día";
-        }
+        aplicarEleccion();
         pintarRango();
     }
 
-    if (pedir) {
-        pedir.addEventListener("click", abrirEleccion);
-    }
-    const cancelar = document.querySelector("[data-vacaciones-cancelar]");
-    if (cancelar) {
-        cancelar.addEventListener("click", cerrarEleccion);
-    }
-    const aceptar = document.querySelector("[data-vacaciones-aceptar]");
-    if (aceptar && formulario) {
-        aceptar.addEventListener("click", function () {
+    const pagina = caja.closest(".calendario-pagina") || document;
+    pagina.addEventListener("click", function (evento) {
+        if (evento.target.closest("[data-vacaciones-abre]") && dialogo) {
+            dialogo.showModal();
+        }
+        if (evento.target.closest("[data-vacaciones-cancelar]")) {
+            cerrarEleccion();
+        }
+        if (evento.target.closest("[data-vacaciones-aceptar]") && formulario) {
             if (!desde || !hasta) {
-                if (texto) {
-                    texto.textContent = "Elige un rango de fechas";
-                }
+                aplicarEleccion();
                 return;
             }
             formulario.querySelector("[data-vacaciones-desde]").value = desde;
             formulario.querySelector("[data-vacaciones-hasta]").value = hasta;
             formulario.submit();
+        }
+    });
+    if (dialogo) {
+        dialogo.addEventListener("click", function (evento) {
+            if (evento.target === dialogo || evento.target.closest("[data-vacaciones-cierra]")) {
+                dialogo.close();
+                return;
+            }
+            if (evento.target.closest("[data-vacaciones-pedir]")) {
+                abrirEleccion();
+            }
         });
     }
 

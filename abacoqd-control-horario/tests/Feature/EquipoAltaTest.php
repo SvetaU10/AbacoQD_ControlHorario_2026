@@ -49,13 +49,20 @@ class EquipoAltaTest extends TestCase
             ->assertOk()
             ->assertSee('Calendario 2026', false)
             ->assertSee('Año Nuevo', false)
+            ->assertSee('Jornada completa', false)
             ->assertSee('Jornada partida', false)
             ->assertSee('Jornada continua', false)
             ->assertSee('Jornada intensiva', false)
             ->assertSee('Tiempo en la empresa', false)
             ->assertSee('Sede municipal', false)
-            ->assertSee('Elige un tipo de jornada para continuar el alta.', false)
+            ->assertDontSee('Elige un tipo de jornada para continuar el alta.', false)
             ->assertDontSee('Guardar alta', false);
+
+        $this->actingAs($marta)
+            ->get(route('equipo.create', ['tipo' => TipoJornada::Completa->value]))
+            ->assertOk()
+            ->assertSee('De 09:00 a 18:00, con una hora de comida.', false)
+            ->assertSee('09:00–14:00 y 15:00–18:00', false);
     }
 
     public function test_al_elegir_el_tipo_se_pinta_el_calendario_y_sale_el_alta(): void
@@ -87,8 +94,9 @@ class EquipoAltaTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('Calendario del periodo', false)
-            ->assertSee('octubre 2026', false)
-            ->assertSee('enero 2027', false)
+            ->assertSee('calendario-anual', false)
+            ->assertSee('Octubre 2026', false)
+            ->assertSee('Enero 2027', false)
             ->assertSee('Laborable · Jornada partida · 3 meses', false)
             ->assertSee('Fuera del tiempo en la empresa', false)
             ->assertSee('casilla-fuera', false)
@@ -96,7 +104,7 @@ class EquipoAltaTest extends TestCase
             ->assertSee('Hasta el 13/01/2027', false)
             ->assertSee('En la empresa desde el 13/10/2026 hasta el 13/01/2027', false)
             ->assertDontSee('Calendario 2026', false)
-            ->assertDontSee('marzo', false)
+            ->assertDontSee('Marzo', false)
             ->assertDontSee('Año siguiente', false)
             ->assertDontSee('Elige cuánto tiempo estará para verlo en el calendario.', false);
     }
@@ -114,11 +122,11 @@ class EquipoAltaTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('#alta-calendario', false)
-            ->assertSee('Ver en el calendario', false)
-            ->assertSee('noviembre 2026', false)
-            ->assertSee('febrero 2027', false)
+            ->assertDontSee('Ver en el calendario', false)
+            ->assertSee('Noviembre 2026', false)
+            ->assertSee('Febrero 2027', false)
             ->assertSee('Hasta el 20/02/2027', false)
-            ->assertDontSee('octubre 2026', false);
+            ->assertDontSee('Octubre 2026', false);
     }
 
     public function test_hasta_un_dia_concreto_pide_la_fecha_antes_de_pintar(): void
@@ -318,6 +326,107 @@ class EquipoAltaTest extends TestCase
         $this->actingAs($ana)
             ->post(route('jornada.entrada'))
             ->assertSessionHas('aviso', 'Tu tiempo en la empresa terminó el martes 6 de octubre.');
+    }
+
+    public function test_el_alta_se_puede_corregir_desde_la_ficha(): void
+    {
+        $marta = $this->jefa();
+        $this->actingAs($marta)->post(route('equipo.store'), [
+            'name' => 'Alejandra',
+            'email' => 'alejandra@abaco.test',
+            'password' => 'Jornada2026',
+            'starts_on' => '2026-11-09',
+            'duracion' => 'indefinido',
+            'centro' => 'Madrid',
+            'tipo' => TipoJornada::Partida->value,
+        ])->assertSessionHas('ok');
+
+        $persona = User::query()->where('email', 'alejandra@abaco.test')->firstOrFail();
+
+        $this->actingAs($marta)
+            ->get(route('equipo.index'))
+            ->assertOk()
+            ->assertSee('Editar', false)
+            ->assertSee(route('equipo.edit', $persona), false);
+
+        $this->actingAs($marta)
+            ->patch(route('equipo.update', $persona), [
+                'name' => 'Alejandra Soler',
+                'email' => 'alejandra.soler@abaco.test',
+                'starts_on' => '2026-11-02',
+                'duracion' => 'tres_meses',
+                'centro' => 'Barcelona',
+                'tipo' => TipoJornada::Continua->value,
+            ])
+            ->assertRedirect(route('equipo.index'));
+
+        $persona->refresh();
+        $horario = Horario::query()->where('user_id', $persona->id)->first();
+        $this->assertSame('Alejandra Soler', $persona->name);
+        $this->assertSame('alejandra.soler@abaco.test', $persona->email);
+        $this->assertSame('2026-11-02', $persona->starts_on->toDateString());
+        $this->assertSame('2027-02-02', $persona->ends_on->toDateString());
+        $this->assertSame('Barcelona', $persona->sede->name);
+        $this->assertSame(TipoJornada::Continua->value, $horario->tipo);
+        $this->assertSame('08:00', substr($horario->morning_start, 0, 5));
+        $this->assertSame('2026-11-02', $horario->effective_from->toDateString());
+
+        $this->actingAs($marta)
+            ->get(route('equipo.edit', $persona))
+            ->assertOk()
+            ->assertSee('Dar de baja', false);
+
+        $this->actingAs($marta)
+            ->post(route('equipo.baja', $persona))
+            ->assertSessionHas('ok');
+
+        $persona->refresh();
+        $this->assertFalse($persona->active);
+        $this->assertSame('2027-02-02', $persona->ends_on->toDateString());
+        $this->assertSame('2026-10-07', $persona->baja_on->toDateString());
+
+        $this->actingAs($marta)
+            ->get(route('equipo.index'))
+            ->assertOk()
+            ->assertSee('Bajas', false)
+            ->assertDontSee('>Alejandra Soler<', false);
+
+        $this->actingAs($marta)
+            ->get(route('equipo.index', ['bajas' => 1]))
+            ->assertOk()
+            ->assertSee('Día de la baja', false)
+            ->assertSee('Reactivar', false)
+            ->assertSee('07/10/2026', false)
+            ->assertSee($persona->name, false);
+
+        $ana = User::create([
+            'name' => 'Ana López',
+            'email' => 'ana.lopez@abaco.test',
+            'password' => 'Jornada2026',
+            'role' => 'trabajadora',
+            'active' => true,
+            'starts_on' => '2026-01-07',
+            'municipality' => 'Madrid',
+        ]);
+
+        $this->actingAs($ana)
+            ->post(route('equipo.reactivar', $persona))
+            ->assertRedirect(route('jornada'));
+        $this->assertFalse($persona->fresh()->active);
+
+        $this->actingAs($marta)
+            ->post(route('equipo.reactivar', $persona))
+            ->assertRedirect(route('equipo.index'));
+
+        $persona->refresh();
+        $this->assertTrue($persona->active);
+        $this->assertNull($persona->baja_on);
+        $this->assertSame('2027-02-02', $persona->ends_on->toDateString());
+
+        $this->actingAs($marta)
+            ->get(route('equipo.index'))
+            ->assertOk()
+            ->assertSee('>Alejandra Soler<', false);
     }
 
     private function jefa(): User

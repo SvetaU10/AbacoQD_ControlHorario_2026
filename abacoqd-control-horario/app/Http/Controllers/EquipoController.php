@@ -37,15 +37,18 @@ class EquipoController extends Controller
     public function index(Request $request): View
     {
         $mostrarTodas = $request->boolean('todas_personas');
+        $verBajas = $request->boolean('bajas');
         $personasQuery = User::query()
             ->with(['horarios', 'sede'])
+            ->where('active', ! $verBajas)
             ->orderBy('name');
 
         return view('equipo.index', [
             'personas' => (clone $personasQuery)
-                ->when(! $mostrarTodas, fn ($query) => $query->limit(8))
+                ->when(! $mostrarTodas && ! $verBajas, fn ($query) => $query->limit(8))
                 ->get(),
             'mostrarTodas' => $mostrarTodas,
+            'verBajas' => $verBajas,
             'totalPersonas' => (clone $personasQuery)->count(),
             'esJefa' => true,
         ]);
@@ -224,6 +227,78 @@ class EquipoController extends Controller
         return redirect()->route('equipo.index')->with('ok', 'Guardado. '.$datos['name'].' ya puede entrar.');
     }
 
+    public function edit(User $user): View
+    {
+        $horario = $this->horarioDeAlta($user);
+
+        return view('equipo.edit', [
+            'persona' => $user,
+            'sedes' => Centro::query()->orderBy('name')->get(),
+            'tipos' => TipoJornada::cases(),
+            'duraciones' => DuracionEstancia::cases(),
+            'tipo' => $horario?->tipoJornada(),
+            'duracion' => $this->duracionActual($user),
+            'esJefa' => true,
+        ]);
+    }
+
+    public function update(Request $request, User $user, AsignacionesCentro $asignaciones): RedirectResponse
+    {
+        $datos = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user)],
+            'starts_on' => ['required', 'date'],
+            'duracion' => ['required', Rule::enum(DuracionEstancia::class)],
+            'ends_on' => ['nullable', 'required_if:duracion,'.DuracionEstancia::HastaElDia->value, 'date', 'after_or_equal:starts_on'],
+            'tipo' => ['required', Rule::enum(TipoJornada::class)],
+            'centro' => ['required', 'string', 'exists:centros,name'],
+        ], [
+            'name.required' => 'Escribe el nombre.',
+            'email.required' => 'Escribe el correo.',
+            'email.unique' => 'Ese correo ya está en uso.',
+            'starts_on.required' => 'Elige desde qué día cuenta el registro.',
+            'duracion.required' => 'Elige cuánto tiempo estará en la empresa.',
+            'duracion.enum' => 'Elige cuánto tiempo estará en la empresa.',
+            'ends_on.required_if' => 'Elige el último día en la empresa.',
+            'ends_on.after_or_equal' => 'El último día no puede ser anterior al inicio.',
+            'tipo.required' => 'Elige el tipo de jornada.',
+            'tipo.enum' => 'Elige un tipo de jornada válido.',
+            'centro.required' => 'Elige la sede municipal.',
+            'centro.exists' => 'Elige una sede municipal válida.',
+        ]);
+        $tipo = TipoJornada::from($datos['tipo']);
+        $sede = Centro::query()->where('name', $datos['centro'])->firstOrFail();
+        $duracion = DuracionEstancia::from($datos['duracion']);
+        $endsOn = $duracion->fechaFin(Carbon::parse($datos['starts_on']), $datos['ends_on'] ?? null);
+        $inicioAnterior = $user->starts_on?->toDateString();
+
+        try {
+            DB::transaction(function () use ($request, $user, $datos, $tipo, $sede, $endsOn, $inicioAnterior, $asignaciones): void {
+                $user->update([
+                    'name' => $datos['name'],
+                    'email' => $datos['email'],
+                    'starts_on' => $datos['starts_on'],
+                    'ends_on' => $endsOn,
+                ]);
+                $this->corregirHorarioDeAlta($user, $tipo, $datos['starts_on'], $inicioAnterior);
+                if ($user->centro_id !== $sede->id) {
+                    if ($user->asignacionesCentro()->exists()) {
+                        $asignaciones->cambiar($user, $sede, $request->user(), now());
+                    } else {
+                        $user->update([
+                            'centro_id' => $sede->id,
+                            'municipality' => $sede->municipio(),
+                        ]);
+                    }
+                }
+            });
+        } catch (ReglaJornada $e) {
+            return back()->with('aviso', $e->getMessage())->withInput();
+        }
+
+        return redirect()->route('equipo.index')->with('ok', 'Guardado. Los datos de '.$datos['name'].' quedan actualizados.');
+    }
+
     public function show(User $user): View
     {
         return view('equipo.show', [
@@ -303,9 +378,75 @@ class EquipoController extends Controller
             return back()->with('aviso', 'No puedes cerrar tu propio acceso.');
         }
 
-        $user->update(['active' => false]);
+        $user->update([
+            'active' => false,
+            'baja_on' => now()->toDateString(),
+        ]);
 
-        return back()->with('ok', 'Acceso cerrado. Los registros de '.$user->name.' se conservan.');
+        return back()->with('ok', 'Acceso cerrado. Día de la baja: '.$user->baja_on->format('d/m/Y').'. El contrato y los registros de '.$user->name.' se conservan.');
+    }
+
+    public function reactivar(Request $request, User $user): RedirectResponse
+    {
+        if ($request->user()->id === $user->id) {
+            return back()->with('aviso', 'No puedes reactivar tu propio acceso.');
+        }
+
+        if ($user->active) {
+            return back()->with('aviso', $user->name.' ya está en el equipo.');
+        }
+
+        $user->update([
+            'active' => true,
+            'baja_on' => null,
+        ]);
+
+        return redirect()
+            ->route('equipo.index')
+            ->with('ok', $user->name.' vuelve al equipo y puede entrar otra vez. El contrato se conserva.');
+    }
+
+    private function horarioDeAlta(User $user): ?Horario
+    {
+        $inicio = $user->starts_on?->toDateString();
+
+        return $user->horarios->first(fn (Horario $horario): bool => $inicio !== null && $horario->effective_from?->toDateString() === $inicio)
+            ?? $user->horarios->sortBy('effective_from')->first();
+    }
+
+    private function duracionActual(User $user): DuracionEstancia
+    {
+        if (! $user->ends_on || ! $user->starts_on) {
+            return DuracionEstancia::Indefinido;
+        }
+
+        foreach ([DuracionEstancia::TresMeses, DuracionEstancia::SeisMeses, DuracionEstancia::UnAnio] as $opcion) {
+            if ($opcion->fechaFin($user->starts_on->copy(), null) === $user->ends_on->toDateString()) {
+                return $opcion;
+            }
+        }
+
+        return DuracionEstancia::HastaElDia;
+    }
+
+    private function corregirHorarioDeAlta(User $user, TipoJornada $tipo, string $desde, ?string $inicioAnterior): void
+    {
+        $user->load('horarios');
+        $horario = $user->horarios->first(fn (Horario $item): bool => $inicioAnterior !== null && $item->effective_from?->toDateString() === $inicioAnterior)
+            ?? $user->horarios->sortBy('effective_from')->first();
+        $horas = $tipo->horas();
+
+        if (! $horario) {
+            $this->guardarHorario($user, $horas, $desde, $tipo);
+
+            return;
+        }
+
+        $cambios = ['tipo' => $tipo->value] + $horas;
+        if ($horario->effective_from?->toDateString() === $inicioAnterior) {
+            $cambios['effective_from'] = $desde;
+        }
+        $horario->update($cambios);
     }
 
     private function validarPersona(Request $request, bool $conClave): array

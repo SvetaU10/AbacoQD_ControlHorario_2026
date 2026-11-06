@@ -25,6 +25,22 @@ class CupoVacaciones
     }
 
     /**
+     * @return array{disponibles: int, solicitados: int, aprobados: int, rechazados: int}
+     */
+    public function resumen(User $user, int $anio): array
+    {
+        $aprobados = $this->aprobados($user, $anio);
+        $solicitados = $this->pendientes($user, $anio);
+
+        return [
+            'disponibles' => max(0, self::DIAS - $aprobados - $solicitados),
+            'solicitados' => $solicitados,
+            'aprobados' => $aprobados,
+            'rechazados' => $this->diasDeSolicitudes($user, $anio, SolicitudVacaciones::RECHAZADA),
+        ];
+    }
+
+    /**
      * @return Collection<int, string>
      */
     public function queCuentan(User $user, Carbon $desde, Carbon $hasta): Collection
@@ -85,8 +101,13 @@ class CupoVacaciones
 
     private function pendientes(User $user, int $anio, ?int $excepto = null): int
     {
+        return $this->diasDeSolicitudes($user, $anio, SolicitudVacaciones::PENDIENTE, $excepto);
+    }
+
+    private function diasDeSolicitudes(User $user, int $anio, string $estado, ?int $excepto = null): int
+    {
         return $user->solicitudesVacaciones()
-            ->where('estado', SolicitudVacaciones::PENDIENTE)
+            ->where('estado', $estado)
             ->when($excepto, fn ($consulta) => $consulta->whereKeyNot($excepto))
             ->get()
             ->sum(function (SolicitudVacaciones $solicitud) use ($user, $anio) {

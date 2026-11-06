@@ -98,6 +98,11 @@
             <line x1="19" x2="19" y1="8" y2="14" />
             <line x1="22" x2="16" y1="11" y2="11" />
             @break
+        @case('user-minus')
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <line x1="22" x2="16" y1="11" y2="11" />
+            @break
         @case('folder')
             <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
             @break
@@ -147,6 +152,10 @@
             <line x1="14" x2="14" y1="2" y2="6" />
             <line x1="8" x2="8" y1="10" y2="14" />
             <line x1="16" x2="16" y1="18" y2="22" />
+            @break
+        @case('pencil')
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
             @break
         @case('logout')
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

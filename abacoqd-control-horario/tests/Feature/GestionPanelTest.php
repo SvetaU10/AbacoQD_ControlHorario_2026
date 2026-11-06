@@ -39,7 +39,7 @@ class GestionPanelTest extends TestCase
 
         $respuesta = $this->actingAs($jefa)->get(route('gestion.index'));
 
-        $respuesta->assertOk()->assertSee('Sede principal')->assertSee('Principal')->assertSee('No hay solicitudes pendientes.')
-            ->assertSee('Gestionar calendario')->assertDontSee('calendarios sincronizados')->assertDontSee('Sede Getafe');
+        $respuesta->assertOk()->assertSee('Sedes')->assertDontSee('Sede principal')->assertSee('Principal')->assertSee('No hay solicitudes pendientes.')
+            ->assertSee('Calendario', false)->assertDontSee('Gestionar calendario')->assertDontSee('calendarios sincronizados')->assertDontSee('Sede Getafe');
     }
 }

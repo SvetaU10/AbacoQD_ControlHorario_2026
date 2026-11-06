@@ -39,7 +39,9 @@ class ImportacionCalendarioHttpTest extends TestCase
         $this->actingAs($jefa)->get(route('gestion.calendario.mostrar', ['centro' => $jefa->centro_id, 'anio' => 2027]))
             ->assertOk()->assertSee('Calendario laboral')->assertSee('Cargar / actualizar')
             ->assertSee('name="anio"', false)->assertSee('name="municipio_ine"', false)
-            ->assertSee('Madrid · Madrid')->assertDontSee('name="provincia"', false);
+            ->assertSee('id="cal-municipio" type="text" value="Madrid · Madrid" autocomplete="off" aria-describedby="cal-municipio-ayuda" disabled', false)
+            ->assertSee('Madrid · Madrid')->assertSee('aria-label="Volver a Gestión"', false)
+            ->assertDontSee('Ver mi calendario')->assertDontSee('Cambiar centro')->assertDontSee('name="provincia"', false);
 
         Http::assertNothingSent();
     }
@@ -73,6 +75,28 @@ class ImportacionCalendarioHttpTest extends TestCase
         $this->get(route('gestion.calendario.mostrar', ['centro' => $jefa->centro_id, 'anio' => 2026]))
             ->assertOk()->assertSee('Calendario activo')->assertSee('14 fechas')->assertSee('Almudena');
         $this->get(route('calendario', ['anio' => 2026, 'mes' => 11]))->assertOk()->assertSee('Almudena');
+    }
+
+    public function test_la_jefa_corrige_un_festivo_cargado_desde_la_lista(): void
+    {
+        $jefa = $this->jefa();
+        $this->fuentesMadrid();
+        $this->actingAs($jefa)->post(route('gestion.calendario.cargar', $jefa->centro_id), ['anio' => 2026, 'municipio_ine' => '28079']);
+
+        $this->get(route('gestion.calendario.mostrar', ['centro' => $jefa->centro_id, 'anio' => 2026]))
+            ->assertOk()->assertSee('aria-label="Editar Nuestra Señora de la Almudena"', false);
+
+        $this->patch(route('gestion.calendario.festivo', $jefa->centro_id), [
+            'fecha_original' => '2026-11-09',
+            'fecha' => '2026-11-09',
+            'nombre' => 'Almudena corregida',
+            'ambito' => 'pueblo',
+        ])->assertRedirect(route('gestion.calendario.mostrar', ['centro' => $jefa->centro_id, 'anio' => 2026]))
+            ->assertSessionHas('ok');
+
+        $this->get(route('gestion.calendario.mostrar', ['centro' => $jefa->centro_id, 'anio' => 2026]))
+            ->assertOk()->assertSee('Almudena corregida')->assertDontSee('Nuestra Señora de la Almudena');
+        $this->get(route('calendario', ['anio' => 2026, 'mes' => 11]))->assertOk()->assertSee('Almudena corregida');
     }
 
     public function test_el_ano_parcial_se_explica_sin_activar_ni_borrar_el_anterior(): void

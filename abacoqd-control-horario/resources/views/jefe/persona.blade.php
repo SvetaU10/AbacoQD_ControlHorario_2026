@@ -54,7 +54,7 @@
     </ul>
 
     @if ($persona->active === false)
-        <p class="secundario">Acceso cerrado. El registro se conserva.</p>
+        <p class="secundario">Acceso cerrado. Día de la baja: {{ $persona->baja_on?->format('d/m/Y') ?? 'sin indicar' }}. El contrato y el registro se conservan.</p>
     @endif
 
     @if ($consultas->isNotEmpty())

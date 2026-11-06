@@ -1,3 +1,4 @@
+<template data-vacaciones-panel>@include('calendario.vacaciones-panel')</template>
 <header class="calendario-cabecera">
     <div>
         <p class="espacio-sobre">Mi jornada</p>
@@ -6,6 +7,15 @@
     </div>
 
     <div class="calendario-controles">
+        <div class="vacaciones-pedir">
+            <button class="boton boton-principal vacaciones-boton" type="button" data-vacaciones-abre>Vacaciones</button>
+            <p class="vacaciones-aviso" data-vacaciones-texto hidden>Elige un rango de fechas</p>
+            <div class="vacaciones-acciones" data-vacaciones-acciones hidden>
+                <button class="vacaciones-tick" type="button" data-vacaciones-aceptar aria-label="Aceptar">✓</button>
+                <button class="vacaciones-equis" type="button" data-vacaciones-cancelar aria-label="Cancelar">✕</button>
+            </div>
+        </div>
+        <div class="calendario-controles-fila">
         <nav class="calendario-anio" aria-label="Cambiar año">
             @if ($anioAnterior)
                 <a href="{{ route('calendario', array_merge($anioAnterior, $vistaAnio ? ['vista' => 'anio'] : [])) }}" data-calendario-ir aria-label="Año anterior">‹</a>
@@ -24,6 +34,7 @@
             <a href="{{ route('calendario', ['anio' => $anio, 'mes' => request('mes')]) }}" @unless ($vistaAnio) aria-current="page" @endunless>Mes</a>
             <a href="{{ route('calendario', ['anio' => $anio, 'mes' => request('mes'), 'vista' => 'anio']) }}" @if ($vistaAnio) aria-current="page" @endif>Año</a>
         </div>
+        </div>
     </div>
 </header>
 
@@ -32,7 +43,6 @@
 @endif
 
 @include('calendario.leyenda')
-@include('calendario.vigencias')
 
 @if ($vistaAnio)
     <section class="calendario-anual" aria-label="Calendario anual">

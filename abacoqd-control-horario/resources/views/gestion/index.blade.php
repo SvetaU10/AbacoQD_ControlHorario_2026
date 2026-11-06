@@ -108,29 +108,10 @@
                         <x-icono nombre="map-pin" />
                     </span>
                     <div>
-                        <h2 id="titulo-sedes">{{ $centros->count() === 1 ? 'Sede principal' : 'Sedes' }}</h2>
+                        <h2 id="titulo-sedes">Sedes</h2>
                         @if ($centros->count() > 1)<p>{{ $centros->count() }} sedes</p>@endif
                     </div>
                 </header>
-
-                <details class="gestion-anadir-sede" @if ($centros->isEmpty() || $errors->has('name')) open @endif>
-                <summary>{{ $centros->isEmpty() ? 'Crear sede' : 'Añadir otra sede' }}</summary>
-                <form method="post" action="{{ route('equipo.centros.store') }}" class="gestion-sede-alta">
-                    @csrf
-                    <label for="centro-name">Nombre de la sede</label>
-                    <input id="centro-name" name="name" value="{{ old('name') }}" maxlength="120" placeholder="Nombre de la sede" required>
-                    @include('gestion.municipio-selector', ['sedeMunicipio' => null, 'prefijo' => 'centro-nuevo'])
-                    <button class="boton boton-principal" type="submit">Guardar sede</button>
-                </form>
-                </details>
-
-                @if ($estadoCatalogo['disponible'] ?? false)
-                    <details class="cal-csv-alternativa">
-                        <summary>Información del catálogo de municipios</summary>
-                        <p class="cal-ayuda">{{ number_format($estadoCatalogo['total'], 0, ',', '.') }} municipios disponibles para elegir la sede.</p>
-                        <p class="cal-ayuda">Copia actualizada el {{ \Illuminate\Support\Carbon::parse($estadoCatalogo['actualizado_at'], 'UTC')->timezone(config('app.timezone'))->format('d/m/Y H:i') }}. {{ $estadoCatalogo['fuente'] }}. Distribuido por <a href="{{ $estadoCatalogo['origen'] }}" target="_blank" rel="noopener noreferrer">festivos.io</a>; <a href="{{ $estadoCatalogo['referencia'] }}" target="_blank" rel="noopener noreferrer">referencia del INE</a>.</p>
-                    </details>
-                @endif
 
                 <div class="gestion-tarjeta-cuerpo">
                     @if ($centros->isEmpty())
@@ -167,6 +148,26 @@
                         </ul>
                     @endif
                 </div>
+
+                <div class="gestion-sede-pie">
+                    <details class="gestion-anadir-sede" @if ($centros->isEmpty() || $errors->has('name')) open @endif>
+                        <summary>{{ $centros->isEmpty() ? 'Crear sede' : 'Añadir otra sede' }}</summary>
+                        <form method="post" action="{{ route('equipo.centros.store') }}" class="gestion-sede-alta">
+                            @csrf
+                            <label for="centro-name">Nombre de la sede</label>
+                            <input id="centro-name" name="name" value="{{ old('name') }}" maxlength="120" placeholder="Nombre de la sede" required>
+                            @include('gestion.municipio-selector', ['sedeMunicipio' => null, 'prefijo' => 'centro-nuevo'])
+                            <button class="boton boton-principal" type="submit">Guardar sede</button>
+                        </form>
+                    </details>
+                    @if ($estadoCatalogo['disponible'] ?? false)
+                        <details class="gestion-catalogo">
+                            <summary>Información del catálogo de municipios</summary>
+                            <p class="cal-ayuda">{{ number_format($estadoCatalogo['total'], 0, ',', '.') }} municipios disponibles para elegir la sede.</p>
+                            <p class="cal-ayuda">Copia actualizada el {{ \Illuminate\Support\Carbon::parse($estadoCatalogo['actualizado_at'], 'UTC')->timezone(config('app.timezone'))->format('d/m/Y H:i') }}. {{ $estadoCatalogo['fuente'] }}. Distribuido por <a href="{{ $estadoCatalogo['origen'] }}" target="_blank" rel="noopener noreferrer">festivos.io</a>; <a href="{{ $estadoCatalogo['referencia'] }}" target="_blank" rel="noopener noreferrer">referencia del INE</a>.</p>
+                        </details>
+                    @endif
+                </div>
             </section>
 
             <section class="gestion-tarjeta gestion-tarjeta-festivos" aria-labelledby="titulo-gestion-festivos">
@@ -176,17 +177,11 @@
                     </span>
                     <div>
                         <h2 id="titulo-gestion-festivos">Festivos</h2>
-                        <p>Calendario laboral por sede y año</p>
+                        <p>El calendario se abre desde cada sede.</p>
                     </div>
                 </header>
 
-                @if ($centros->isNotEmpty())
-                    <div class="cal-gestion-acceso">
-                        <p>Carga los festivos y elige desde qué día se aplican.</p>
-                        <a class="boton boton-principal" href="{{ route('gestion.calendario.mostrar', auth()->user()->centro_id ?? $centros->first()->id) }}">Gestionar calendario</a>
-                    </div>
-                @endif
-                <details class="cal-csv-alternativa"><summary>Importar por archivo</summary>
+                <details class="gestion-festivos-importar"><summary>Importar por archivo</summary>
                 <p class="cal-ayuda">Para calendarios propios o ajustes especiales. <a href="{{ route('calendario.festivos.plantilla') }}">Descargar plantilla CSV</a></p>
                 <form method="post" action="{{ route('calendario.festivos.previsualizar') }}" enctype="multipart/form-data" class="gestion-festivos-form" data-festivos-form>
                     @csrf

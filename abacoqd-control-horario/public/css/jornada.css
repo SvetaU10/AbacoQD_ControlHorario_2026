@@ -3444,6 +3444,8 @@ html[data-tema="oscuro"] .pastilla-en_curso {
     gap: 0;
 }
 
+.casilla-laborable-completa { background: #d9e6f8; }
+
 .casilla-laborable-partida { background: #d7efea; }
 
 .casilla-laborable-continua { background: #d5eef7; }
@@ -3453,6 +3455,8 @@ html[data-tema="oscuro"] .pastilla-en_curso {
 .casilla-en-periodo { background: #d7efea; }
 
 .muestra-laborable { background: #087f8c; }
+
+.muestra-laborable-completa { background: #1d6fbf; }
 
 .muestra-laborable-partida { background: #087f8c; }
 
@@ -3517,8 +3521,10 @@ button.tipo-jornada {
 .alta-bloque {
     margin-top: 16px;
     border: 1px solid var(--linea);
+    border-top: 3px solid var(--marca-primario);
     border-radius: var(--radio);
     background: var(--fondo-ventana);
+    box-shadow: 0 10px 28px rgba(7, 17, 26, 0.05);
 }
 
 .alta-panel { padding: 16px; }
@@ -3560,6 +3566,34 @@ button.tipo-jornada {
 
 .alta-acciones .boton { width: auto; }
 
+.alta-cierre {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.alta-cierre .secundario {
+    margin: 0;
+    margin-right: auto;
+}
+
+.boton-baja {
+    width: auto;
+    border: 1px solid color-mix(in srgb, var(--marca-primario) 42%, var(--linea));
+    background: color-mix(in srgb, var(--marca-primario) 10%, var(--superficie, #fff));
+    color: var(--marca-primario-oscuro);
+}
+
+.boton-baja:hover,
+.boton-baja:focus-visible {
+    border-color: var(--marca-primario);
+    background: var(--marca-primario);
+    color: #fff;
+}
+
 .alta-bloque summary {
     display: flex;
     align-items: center;
@@ -3598,26 +3632,13 @@ button.tipo-jornada {
 
 .alta-calendario { scroll-margin-top: 88px; }
 
-.alta-calendario .leyenda { margin: 8px 0 12px; }
+.alta-calendario .calendario-anio { margin: 4px 0 8px; }
 
-.alta-calendario .leyenda li { min-height: 0; }
+.alta-calendario .calendario-anual { margin-top: 4px; }
 
-.alta-calendario .anio { gap: 8px; }
-
-.alta-calendario .mes-caja { padding: 8px; }
-
-.alta-calendario .mes-caja h2 { margin-bottom: 4px; font-size: 14px; }
-
-.alta-calendario .rejilla-mes { gap: 2px; }
-
-.alta-calendario .casilla {
-    min-height: 26px;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    font-size: 12px;
-    font-weight: 600;
-    text-align: center;
+.alta-calendario .calendario-anual-rejilla .casilla-laborable,
+.alta-calendario .calendario-anual-rejilla .casilla-fuera {
+    border-radius: 0;
 }
 
 .formulario:has(.alta-bloque) { margin-top: 16px; }
@@ -3662,6 +3683,8 @@ button.tipo-jornada {
 @media (max-width: 800px) {
     .tipos-jornada-lista { grid-template-columns: 1fr; }
 }
+
+html[data-tema="oscuro"] .casilla-laborable-completa { background: #1a4f86; }
 
 html[data-tema="oscuro"] .casilla-laborable-partida { background: #0e6b74; }
 

@@ -14,17 +14,38 @@
     .gestion-cabeza h1 { font-size: clamp(26px, 3vw, 32px); letter-spacing: -.025em; }
     .gestion-intro { margin: 0; color: var(--texto-2); }
     .gestion-tablero { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; flex: 0 0 auto; }
-    .gestion-tarjeta { padding: 22px; gap: 20px; border-top: 1px solid var(--linea); border-radius: 12px; box-shadow: none; overflow: visible; }
+    .gestion-tarjeta { padding: 18px 18px 16px; gap: 16px; border: 1px solid var(--linea); border-top: 3px solid var(--marca-primario); border-radius: 16px; background: var(--fondo-ventana); box-shadow: 0 10px 28px rgba(7, 17, 26, 0.05); overflow: visible; }
+    html[data-tema="oscuro"] .gestion-tarjeta { box-shadow: none; }
     .gestion-tarjeta-vacaciones { grid-column: 1 / -1; }
     .gestion-tarjeta-vacaciones:not(:has(.gestion-solicitud)) { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 16px; }
     .gestion-tarjeta-vacaciones:not(:has(.gestion-solicitud)) .gestion-vacio { display: flex; min-height: 40px; gap: 10px; padding: 0; margin: 0; text-align: left; }
     .gestion-tarjeta-vacaciones:not(:has(.gestion-solicitud)) .gestion-tarjeta-cuerpo { flex: 0; }
     .gestion-tarjeta-cuerpo { overflow: visible; max-height: none; }
     .gestion-marca { background: var(--superficie-2); color: var(--enlace); border-radius: 10px; }
-    .gestion-tarjeta-sedes > .gestion-anadir-sede { order: 3; }
-    .gestion-tarjeta-sedes > .cal-csv-alternativa { order: 4; margin: 0; border-top: 1px solid var(--linea); padding-top: 14px; }
-    .gestion-anadir-sede { border-top: 1px solid var(--linea); padding-top: 14px; }
-    .gestion-anadir-sede > summary { color: var(--enlace); cursor: pointer; min-height: 36px; padding-block: 7px; }
+    .gestion-sede-pie { display: flex; flex-wrap: wrap; gap: 4px 18px; padding-top: 4px; }
+    .gestion-anadir-sede, .gestion-catalogo, .gestion-festivos-importar { border: 0; padding: 0; margin: 0; }
+    .gestion-anadir-sede > summary, .gestion-catalogo > summary, .gestion-festivos-importar > summary { color: var(--enlace); cursor: pointer; min-height: 36px; padding: 6px 0; font-size: 14px; font-weight: 600; }
+    .gestion-festivos-importar { padding: 4px 12px; border: 1px solid var(--linea); border-radius: 12px; background: var(--fondo); }
+    .gestion-festivos-importar > summary { min-height: 44px; display: flex; align-items: center; }
+    .gestion-festivos-importar[open] { padding-bottom: 12px; }
+    .vacaciones-dialogo { position: relative; width: min(560px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--linea); border-top: 3px solid var(--marca-primario); border-radius: 16px; background: var(--fondo-ventana); box-shadow: 0 24px 60px rgba(7, 17, 26, 0.2); }
+    html[data-tema="oscuro"] .vacaciones-dialogo { box-shadow: none; }
+    .vacaciones-panel { position: relative; display: grid; gap: 18px; padding: 22px; }
+    .vacaciones-cerrar-form { position: absolute; top: 12px; right: 12px; margin: 0; }
+    .vacaciones-panel-cabeza { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding-right: 44px; }
+    .vacaciones-panel-kicker { margin: 0 0 2px; color: var(--texto-2); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .vacaciones-panel h2, .vacaciones-panel h3, .vacaciones-panel p { margin: 0; }
+    .vacaciones-panel h3 { margin-bottom: 8px; font-size: 14px; }
+    .vacaciones-panel-cupo { min-width: 8.5rem; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--marca-primario) 12%, var(--fondo-ventana)); text-align: center; }
+    .vacaciones-panel-cupo strong { display: block; color: var(--cifra); font-size: 28px; line-height: 1; }
+    .vacaciones-panel-cupo span { color: var(--texto-2); font-size: 12px; font-weight: 600; }
+    .vacaciones-cerrar { display: grid; width: 40px; height: 40px; place-items: center; border: 0; border-radius: 12px; background: var(--superficie-2); color: var(--texto); font-size: 26px; line-height: 1; cursor: pointer; }
+    .vacaciones-cerrar:hover { background: var(--superficie-2); color: var(--texto); }
+    .vacaciones-lista { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .vacaciones-lista li { padding: 12px 14px; border: 1px solid var(--linea); border-radius: 12px; background: var(--fondo); font-weight: 600; }
+    .vacaciones-aprobada { border-left: 3px solid var(--estado-aprobado); }
+    .vacaciones-rechazada { border-left: 3px solid var(--estado-error-tecnico); }
+    .vacaciones-panel > .boton { justify-self: start; }
     .gestion-anadir-sede .gestion-sede-alta { margin-top: 14px; }
     .gestion-sedes-lista > li { flex-direction: row; align-items: center; gap: 12px; flex-wrap: wrap; padding-block: 14px; }
     .gestion-sede-calendario { color: var(--enlace); }

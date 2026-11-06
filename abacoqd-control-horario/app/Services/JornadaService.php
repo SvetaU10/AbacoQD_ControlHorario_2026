@@ -94,7 +94,9 @@ class JornadaService
         $primero = $hoy?->tramos->first(fn (Tramo $tramo) => $tramo->tipo === Tramo::TRABAJO);
         $tipo = $horario?->tipoJornada();
         if ($horario && $tipo === null) {
-            $tipo = $horario->sinTarde() ? TipoJornada::Continua : TipoJornada::Partida;
+            $tipo = $horario->esJornadaCompleta()
+                ? TipoJornada::Completa
+                : ($horario->sinTarde() ? TipoJornada::Continua : TipoJornada::Partida);
         }
         $lunes = $ahora->copy()->locale('es')->startOfWeek(Carbon::MONDAY);
         $domingo = $ahora->copy()->locale('es')->endOfWeek(Carbon::SUNDAY);

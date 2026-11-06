@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Ausencia;
 use App\Models\ImportacionCalendario;
+use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Services\CalendarioMunicipal;
 use App\Services\VigenciasCalendario;
@@ -181,6 +183,50 @@ class CalendarioVigenciaHttpTest extends TestCase
         $this->get($pantalla)->assertOk()->assertViewHas('modoVigencia', 'anio')->assertViewHas('fechaVigencia', '2026-10-30');
         $this->assertDatabaseCount('importaciones_calendario', 0);
         Http::assertNothingSent();
+    }
+
+    public function test_un_trabajador_no_ve_las_paginas_oficiales_del_calendario(): void
+    {
+        $jefa = $this->jefa();
+        $fuente = 'https://www.boe.es/diario_boe/txt.php?id=BOE-A-2025-21667';
+        $importacion = ImportacionCalendario::create([
+            'centro_id' => $jefa->centro_id, 'anio' => 2026, 'municipio_ine' => '28079',
+            'municipio' => 'Madrid', 'provincia' => 'Madrid', 'comunidad' => 'Comunidad de Madrid', 'comunidad_codigo' => 'ES-MD',
+            'estado' => 'cargado', 'mensaje' => 'Calendario confirmado de prueba', 'festivos' => [],
+            'fuentes' => [['nombre' => 'BOE', 'url' => $fuente]],
+            'vigente_desde' => '2026-01-01', 'consultado_at' => now(), 'activado_at' => now(),
+        ]);
+        app(VigenciasCalendario::class)->activar($importacion);
+        $trabajador = User::factory()->create(['centro_id' => $jefa->centro_id]);
+
+        $this->actingAs($trabajador)->get(route('calendario', ['anio' => 2026]))
+            ->assertOk()->assertDontSee('Municipios de 2026', false)->assertDontSee($fuente, false);
+        $this->actingAs($jefa)->get(route('calendario', ['anio' => 2026]))
+            ->assertOk()->assertDontSee('Municipios de 2026', false)->assertDontSee($fuente, false);
+    }
+
+    public function test_el_calendario_resume_disponibles_solicitados_aprobados_y_rechazados(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-30 10:00:00', 'Europe/Madrid'));
+        $persona = User::factory()->create();
+        foreach (['2026-11-02', '2026-11-03'] as $fecha) {
+            Ausencia::create(['user_id' => $persona->id, 'absence_date' => $fecha, 'tipo' => 'vacaciones']);
+        }
+        SolicitudVacaciones::create([
+            'user_id' => $persona->id, 'starts_on' => '2026-11-09', 'ends_on' => '2026-11-13', 'estado' => SolicitudVacaciones::PENDIENTE,
+        ]);
+        SolicitudVacaciones::create([
+            'user_id' => $persona->id, 'starts_on' => '2026-11-16', 'ends_on' => '2026-11-17', 'estado' => SolicitudVacaciones::RECHAZADA,
+        ]);
+
+        $this->actingAs($persona)->get(route('calendario', ['anio' => 2026]))
+            ->assertOk()
+            ->assertSee('Vacaciones')
+            ->assertSee('Aprobadas')->assertSee('Rechazadas')->assertSee('días disponibles')
+            ->assertSee('<strong>15</strong>', false)
+            ->assertSee('Del 02/11/2026 al 03/11/2026')
+            ->assertSee('Del 16/11/2026 al 17/11/2026')
+            ->assertDontSee('Solicitados');
     }
 
     /** @param list<array<string,string>> $dias */

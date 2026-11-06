@@ -4,6 +4,7 @@ namespace App;
 
 enum TipoJornada: string
 {
+    case Completa = 'completa';
     case Partida = 'partida';
     case Continua = 'continua';
     case Intensiva = 'intensiva';
@@ -11,6 +12,7 @@ enum TipoJornada: string
     public function etiqueta(): string
     {
         return match ($this) {
+            self::Completa => 'Jornada completa',
             self::Partida => 'Jornada partida',
             self::Continua => 'Jornada continua',
             self::Intensiva => 'Jornada intensiva',
@@ -20,6 +22,7 @@ enum TipoJornada: string
     public function descripcion(): string
     {
         return match ($this) {
+            self::Completa => 'De 09:00 a 18:00, con una hora de comida.',
             self::Partida => 'Mañana y tarde, con pausa de comida.',
             self::Continua => 'Un solo tramo, sin pausa de comida.',
             self::Intensiva => 'Un tramo más corto, habitual en verano o viernes.',
@@ -32,7 +35,7 @@ enum TipoJornada: string
     public function horas(): array
     {
         return match ($this) {
-            self::Partida => [
+            self::Completa, self::Partida => [
                 'morning_start' => '09:00',
                 'morning_end' => '14:00',
                 'afternoon_start' => '15:00',
